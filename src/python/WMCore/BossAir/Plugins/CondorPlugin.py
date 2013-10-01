@@ -29,6 +29,11 @@ from WMCore.BossAir.Plugins.BasePlugin import BasePlugin, BossAirPluginException
 from WMCore.FwkJobReport.Report        import Report
 from WMCore.Algorithms                 import SubprocessAlgos
 
+##  python-condor stuff
+import htcondor as condor
+import classad
+
+
 def submitWorker(input, results, timeout = None):
     """
     _outputWorker_
@@ -552,7 +557,7 @@ class CondorPlugin(BasePlugin):
         noInfoFlag   = False
 
         # Get the job
-        jobInfo = self.getClassAds()
+        jobInfo, sdad = self.getClassAds()
         if jobInfo == None:
             return runningList, changeList, completeList
         if len(jobInfo.keys()) == 0:
@@ -711,7 +716,7 @@ class CondorPlugin(BasePlugin):
         Modify condor classAd for all Idle jobs for a site if it has gone Down, Draining or Aborted.
         Kill all jobs if the site is the only site for the job.
         """
-        jobInfo = self.getClassAds()
+        jobInfo, sdad = self.getClassAds()
         jobtokill=[]
         for job in jobs:
             jobID = job['id']
@@ -724,10 +729,10 @@ class CondorPlugin(BasePlugin):
                         usi.remove(siteName)
                         usi = usi.__str__().lstrip('[').rstrip(']')
                         usi = filter(lambda c: c not in "\'", usi)
-                        command = 'condor_qedit  -constraint \'WMAgent_JobID==%i\' DESIRED_Sites \'"%s"\'' %(jobID, usi)
-                        proc = subprocess.Popen(command, stderr = subprocess.PIPE,
-                                                stdout = subprocess.PIPE, shell = True)
-                        out, err = proc.communicate()
+                        for sds in sdad :
+                            if sds['Name'] == os.getenv("HOSTNAME") :     
+                                sd = condor.Schedd(sds)
+                                sd.edit('WMAgent_JobID == %i'%jobID, "DESIRED_Sites", classad.ExprTree('"%s"'% usi))
                     else:
                         jobtokill.append(job)
                 else :
@@ -738,10 +743,10 @@ class CondorPlugin(BasePlugin):
                     usi.append(siteName)
                     usi = usi.__str__().lstrip('[').rstrip(']')
                     usi = filter(lambda c: c not in "\'", usi)
-                    command = 'condor_qedit  -constraint \'WMAgent_JobID==%i\' DESIRED_Sites \'"%s"\'' %(jobID, usi)
-                    proc = subprocess.Popen(command, stderr = subprocess.PIPE,
-                                            stdout = subprocess.PIPE, shell = True)
-                    out, err = proc.communicate()
+                    for sds in sdad :
+                        if sds['Name'] == os.getenv("HOSTNAME") :     
+                            sd = condor.Schedd(sds)
+                            sd.edit('WMAgent_JobID == %i'%jobID, "DESIRED_Sites", classad.ExprTree('"%s"'% usi))
                 else :
                     logging.error("Cannot find siteName %s in the sitelist" % siteName)
         
@@ -753,15 +758,16 @@ class CondorPlugin(BasePlugin):
         """
         Kill a list of jobs based on the WMBS job names
 
-        """
+        Kill can happen for schedd running on localhost... TBC
 
+        """
+        jobInfo, sdad = self.getClassAds()
         for job in jobs:
             jobID = job['jobid']
-            # This is a very long and painful command to run
-            command = 'condor_rm -constraint \"WMAgent_JobID =?= %i\"' % (jobID)
-            proc = subprocess.Popen(command, stderr = subprocess.PIPE,
-                                    stdout = subprocess.PIPE, shell = True)
-            out, err = proc.communicate()
+            for sds in sdad :
+                if sds['Name'] == os.getenv("HOSTNAME") :     
+                    sd = condor.Schedd(sds)
+                    sd.act(condor.JobAction.Remove, 'WMAgent_JobID == %i'% jobID)
 
         return
 
@@ -775,27 +781,14 @@ class CondorPlugin(BasePlugin):
         The currently supported changes are only priority for which both the task (taskPriority)
         and workflow priority (requestPriority) must be provided.
         """
+        jobInfo, sdad = self.getClassAds()
         if 'taskPriority' in kwargs and 'requestPriority' in kwargs:
             # Do a priority update
             priority = (int(kwargs['requestPriority']) + int(kwargs['taskPriority'])*self.maxTaskPriority)
-            command = 'condor_qedit -constraint \'WMAgent_SubTaskName == "%s" && WMAgent_RequestName == "%s"\' ' %(task, workflow)
-            command += 'JobPrio %s' % priority
-            command = shlex.split(command)
-            proc = subprocess.Popen(command, stderr = subprocess.PIPE,
-                                    stdout = subprocess.PIPE)
-            _, stderr = proc.communicate()
-            if proc.returncode != 0:
-                # Check if there are actually jobs to update
-                command = 'condor_q -constraint \'WMAgent_SubTaskName == "%s" && WMAgent_RequestName == "%s"\' ' %(task, workflow)
-                command += '-format \'WMAgentID:\%d:::\' WMAgent_JobID'
-                command = shlex.split(command)
-                proc = subprocess.Popen(command, stderr = subprocess.PIPE,
-                                        stdout = subprocess.PIPE)
-                stdout, _ = proc.communicate()
-                if stdout != '':
-                    msg = 'HTCondor edit failed with exit code %d\n'% proc.returncode
-                    msg += 'Error was: %s' % stderr
-                    raise BossAirPluginException(msg)
+            for sds in sdad :
+                sd = condor.Schedd(sds)
+                sd.edit('WMAgent_JobID =!= UNDEFINED && WMAgent_SubTaskName == "%s" && WMAgent_RequestName == "%s"'% (task,workflow),
+                        "JobPrio", classad.ExprTree('"%s"'% priority))
                 
         return
 
@@ -1025,60 +1018,40 @@ class CondorPlugin(BasePlugin):
         """
         _getClassAds_
 
-        Grab classAds from condor_q using xml parsing
+        Grab CONDOR classAds using CONDOR-PYTHON
         """
 
         jobInfo = {}
-
-        command = ['condor_q', '-constraint', 'WMAgent_JobID =!= UNDEFINED',
-                   '-constraint', 'WMAgent_AgentName == \"%s\"' % (self.agent),
-                   '-format', '(JobStatus:\%s)  ', 'JobStatus',
-                   '-format', '(stateTime:\%s)  ', 'EnteredCurrentStatus',
-                   '-format', '(runningTime:\%s)  ', 'JobStartDate',
-                   '-format', '(submitTime:\%s)  ', 'QDate',
-                   '-format', '(DESIRED_Sites:\%s)  ', 'DESIRED_Sites',                   
-                   '-format', '(ExtDESIRED_Sites:\%s)  ', 'ExtDESIRED_Sites',                   
-                   '-format', '(runningCMSSite:\%s)  ', 'MATCH_EXP_JOBGLIDEIN_CMSSite',
-                   '-format', '(WMAgentID:\%d):::',  'WMAgent_JobID']
-
-        pipe = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = False)
-        stdout, _ = pipe.communicate()
-        classAdsRaw = stdout.split(':::')
-
-        if not pipe.returncode == 0:
-            # Then things have gotten bad - condor_q is not responding
-            logging.error("condor_q returned non-zero value %s" % str(pipe.returncode))
-            logging.error("Skipping classAd processing this round")
-            return None
-
-        if classAdsRaw == '':
-            # We have no jobs
-            return jobInfo
-
-        for ad in classAdsRaw:
-            # There should be one for every job
-            if not re.search("\(", ad):
-                # There is no ad.
-                # Don't know what happened here
-                continue
-            statements = ad.split('(')
-            tmpDict = {}
-            for statement in statements:
-                # One for each value
-                if not re.search(':', statement):
-                    # Then we have an empty statement
-                    continue
-                key = str(statement.split(':')[0])
-                value = statement.split(':')[1].split(')')[0]
-                tmpDict[key] = value
-            if not 'WMAgentID' in tmpDict.keys():
-                # Then we have an invalid job somehow
-                logging.error("Invalid job discovered in condor_q")
-                logging.error(tmpDict)
-                continue
-            else:
-                jobInfo[int(tmpDict['WMAgentID'])] = tmpDict
-
+        coll = condor.Collector()
+        scheddAd = coll.locateAll(condor.DaemonTypes.Schedd)
+        results=[]
+        
+        if scheddAd == None :
+            logging.error("condor schedd NOT found")
+            return jobInfo, scheddAd
+        else :
+            for sd in scheddAd :
+                schedd = condor.Schedd(sd)
+                results += schedd.query('WMAgent_JobID =!= "UNDEFINED" && WMAgent_AgentName == "%s"' % self.agent,
+                                        ["JobStatus", "EnteredCurrentStatus", "JobStartDate", "QDate", "DESIRED_Sites",
+                                         "ExtDESIRED_Sites", "MATCH_EXP_JOBGLIDEIN_CMSSite", "WMAgent_JobID"]
+                                        )
+        if results == None :
+            logging.error("Not able to find WMAgent jobs")
+            return jobInfo, scheddAd
+        else :
+            for i in range(0, len(results)) :
+                tmpDict={}
+                tmpDict["JobStatus"]=int(results[i].get("JobStatus"))
+                tmpDict["stateTime"]=int(results[i].get("EnteredCurrentStatus"))
+                tmpDict["runningTime"]=results[i].get("JobStartDate")
+                tmpDict["submitTime"]=int(results[i].get("QDate"))
+                tmpDict["DESIRED_Sites"]=results[i].get("DESIRED_Sites")
+                tmpDict["ExtDESIRED_Sites"]=results[i].get("ExtDESIRED_Sites")
+                tmpDict["runningCMSSite"]=results[i].get("MATCH_EXP_JOBGLIDEIN_CMSSite")
+                tmpDict["WMAgentID"]=int(results[i].get("WMAgent_JobID"))
+                jobInfo[int(results[i].get("WMAgent_JobID"))] = tmpDict
+                
         logging.info("Retrieved %i classAds" % len(jobInfo))
+        return jobInfo, scheddAd
 
-        return jobInfo
