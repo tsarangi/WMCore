@@ -121,21 +121,15 @@ config.WorkQueueManager.inboxDatabase = workqueueInboxDbName
 config.WorkQueueManager.queueParams = {}
 config.WorkQueueManager.queueParams["ParentQueueCouchUrl"] = "https://cmsweb.cern.ch/couchdb/workqueue"
 
-config.component_("DBSUpload")
-config.DBSUpload.namespace = "WMComponent.DBSUpload.DBSUpload"
-config.DBSUpload.componentDir = config.General.workDir + "/DBSUpload"
-config.DBSUpload.logLevel = globalLogLevel
-config.DBSUpload.workerThreads = 1
-config.DBSUpload.pollInterval = 100
-
 config.component_("DBS3Upload")
 config.DBS3Upload.namespace = "WMComponent.DBS3Buffer.DBS3Upload"
 config.DBS3Upload.componentDir = config.General.workDir + "/DBS3Upload"
 config.DBS3Upload.logLevel = globalLogLevel
 config.DBS3Upload.workerThreads = 1
 config.DBS3Upload.pollInterval = 100
-config.DBS3Upload.dbsUrl = "https://cmsweb-testbed.cern.ch/dbs/prod/global/DBSWriter"
-config.DBS3Upload.dbs3UploadOnly = True
+config.DBS3Upload.dbsUrl = "https://cmsweb.cern.ch/dbs/prod/global/DBSWriter"
+config.DBS3Upload.dbs3UploadOnly = False
+config.DBS3Upload.primaryDatasetType = "mc"
 
 config.section_("DBSInterface")
 #config.DBSInterface.DBSUrl = localDBSUrl
@@ -145,6 +139,7 @@ config.DBSInterface.globalDBSUrl = globalDBSUrl
 config.DBSInterface.globalDBSVersion = globalDBSVersion
 config.DBSInterface.MaxFilesToCommit = 200
 config.DBSInterface.doGlobalMigration = False
+config.DBSInterface.primaryDatasetType = "mc"
 
 config.component_("PhEDExInjector")
 config.PhEDExInjector.namespace = "WMComponent.PhEDExInjector.PhEDExInjector"
@@ -216,7 +211,7 @@ config.ErrorHandler.logLevel = globalLogLevel
 config.ErrorHandler.maxRetries = maxJobRetries
 config.ErrorHandler.pollInterval = 240
 config.ErrorHandler.readFWJR = True
-config.ErrorHandler.failureExitCodes = [50660, 50661, 50664, 134]
+config.ErrorHandler.failureExitCodes = [50660, 50661, 50664]
 config.ErrorHandler.maxFailTime = 120000
 
 config.component_("RetryManager")
@@ -483,11 +478,6 @@ config.AlertGenerator.couchErrorsPoller.pollInterval = 600 # [second]
 # mysql*Poller sections were made optional and are defined in the
 # wmagent-mod-config file
 
-# alerts-related stuff associated with components, these values shall later
-# be moved into respective configuration sections 
-# e.g. next item(s) will be from WorkQueueManager when a special necessary view is implemented
-config.DBSUpload.alertUploadQueueSize = 2000
-
 config.component_("AnalyticsDataCollector")
 config.AnalyticsDataCollector.namespace = "WMComponent.AnalyticsDataCollector.AnalyticsDataCollector"
 config.AnalyticsDataCollector.componentDir  = config.General.workDir + "/AnalyticsDataCollector"
@@ -499,5 +489,7 @@ config.AnalyticsDataCollector.localQueueURL = "%s/%s" % (config.WorkQueueManager
 config.AnalyticsDataCollector.localWMStatsURL = "%s/%s" % (config.JobStateMachine.couchurl, config.JobStateMachine.jobSummaryDBName)
 config.AnalyticsDataCollector.centralWMStatsURL = "Central WMStats URL"
 config.AnalyticsDataCollector.summaryLevel = "task"
+config.AnalyticsDataCollector.diskUseThreshold = 85
+config.AnalyticsDataCollector.couchProcessThreshold = 25
 config.AnalyticsDataCollector.pluginName = None
 

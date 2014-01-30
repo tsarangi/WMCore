@@ -275,7 +275,7 @@ class JobSubmitterPoller(BaseWorkerThread):
             if not os.path.isfile(pickledJobPath):
                 # Then we have a problem - there's no file
                 logging.error("Could not find pickled jobObject %s" % pickledJobPath)
-                badJobs[601103].append(newJob)
+                badJobs[61103].append(newJob)
                 continue
             try:
                 jobHandle = open(pickledJobPath, "r")
@@ -311,7 +311,6 @@ class JobSubmitterPoller(BaseWorkerThread):
                 else:
                     for siteName in self.siteKeys[loc]:
                         possibleLocations.add(siteName)
-                        potentialLocations.add(siteName)
 
             if len(loadedJob["siteWhitelist"]) > 0:
                 whiteList = []
@@ -391,7 +390,7 @@ class JobSubmitterPoller(BaseWorkerThread):
                        loadedJob.get("estimatedDiskUsage", None),
                        loadedJob.get("estimatedMemoryUsage", None),
                        newJob['task_name'],
-                       frozenset(potentialLocations),)
+                       frozenset(potentialLocations))
 
             self.jobDataCache[workflowName][jobID] = jobInfo
 

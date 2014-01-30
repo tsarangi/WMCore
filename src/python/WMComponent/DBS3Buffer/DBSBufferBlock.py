@@ -9,9 +9,10 @@ This is a block object which will be uploaded to DBS
 
 import time
 import logging
+import copy
 
+from WMCore import Lexicon
 from WMCore.Services.Requests import JSONRequests
-
 from WMCore.WMException import WMException
 
 
@@ -64,7 +65,7 @@ class DBSBlock:
 
         self.data['block']['block_name']       = name
         self.data['block']['origin_site_name'] = location
-        self.data['block']['open_for_writing'] = 0
+        self.data['block']['open_for_writing'] = 1
 
         self.data['block']['create_by'] = "WMAgent"
         self.data['block']['creation_date'] = int(time.time())
@@ -92,7 +93,7 @@ class DBSBlock:
 
 
 
-    def addFile(self, dbsFile):
+    def addFile(self, dbsFile, datasetType, primaryDatasetType):
         """
         _addFile_
 
@@ -180,8 +181,8 @@ class DBSBlock:
 
         # Take care of the dataset
         self.setDataset(datasetName  = dbsFile['datasetPath'],
-                        primaryType  = dbsFile.get('primaryType', 'DATA'),
-                        datasetType  = dbsFile.get('datasetType', 'PRODUCTION'),
+                        primaryType  = primaryDatasetType, 
+                        datasetType  = datasetType,
                         physicsGroup = dbsFile.get('physicsGroup', None))
 
         return
@@ -273,11 +274,8 @@ class DBSBlock:
             # Do nothing, we already have a dataset
             return
 
-        if not primaryType in ['MC', 'DATA', 'TEST']:
-            msg = "Invalid primaryDatasetType %s\n" % primaryType
-            logging.error(msg)
-            raise DBSBlockException(msg)
-
+        Lexicon.primaryDatasetType(primaryType)
+        
         if not datasetType in ['VALID', 'PRODUCTION', 'INVALID', 'DEPRECATED', 'DELETED']:
             msg = "Invalid processedDatasetType %s\n" % datasetType
             logging.error(msg)
@@ -450,3 +448,38 @@ class DBSBlock:
             if key == "DatasetAlgo":
                 continue
             self.data['block'][key] = blockInfo.get(key)
+            
+    def convertToDBSBlock(self):
+        """
+        convert to DBSBlock structure to upload to dbs
+        """
+        block = {}
+        
+        keyToRemove = ['insertedFiles', 'newFiles', 'DatasetAlgo', 'file_count',
+                       'block_size', 'origin_site_name', 'creation_date', 'open',
+                       'Name', 'close_settings']
+        
+        nestedKeyToRemove = ['block.block_events']
+        
+        dbsBufferToDBSBlockKey = {'block_size': 'BlockSize',
+                                  'creation_date': 'CreationDate', 
+                                  'file_count': 'NumberOfFiles',
+                                  'origin_site_name': 'location'}
+        
+        # clone the new DBSBlock dict after filtering out the data.
+        for key in self.data:
+            if key in keyToRemove:
+                continue
+            elif key in dbsBufferToDBSBlockKey.keys():
+                block[dbsBufferToDBSBlockKey[key]] = copy.deepcopy(self.data[key])
+            else:
+                block[key] = copy.deepcopy(self.data[key])
+        
+        # delete nested key dictionary
+        for nestedKey in nestedKeyToRemove:
+            firstkey, subkey = nestedKey.split('.', 1)
+            del block[firstkey][subkey]
+                
+        return block
+                    
+                    

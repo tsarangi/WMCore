@@ -14,18 +14,24 @@ import urlparse
 from WMCore.WMException import WMException
 
 lfnParts = {
-    'era'           : '([a-zA-Z0-9\-_]+)',
-    'primDS'        : '([a-zA-Z0-9\-_]+)',
-    'tier'          : '([A-Z\-_]+)',
-    'version'       : '([a-zA-Z0-9\-_]+)',
-    'secondary'     : '([a-zA-Z0-9\-_]+)',
-    'counter'       : '([0-9]+)',
-    'root'          : '([a-zA-Z0-9\-_]+).root',
-    'hnName'        : '([a-zA-Z0-9\.]+)',
-    'subdir'        : '([a-zA-Z0-9\-_]+)',
-    'file'          : '([a-zA-Z0-9\-\._]+)',
-    'workflow'      : '([a-zA-Z0-9\-_]+)',
-    'physics_group' : '([a-zA-Z\-_]+)',
+    'era': '([a-zA-Z0-9\-_]+)',
+    'primDS': '([a-zA-Z0-9\-_]+)',
+    'tier': '([A-Z\-_]+)',
+    'version': '([a-zA-Z0-9\-_]+)',
+    'secondary': '([a-zA-Z0-9\-_]+)',
+    'counter': '([0-9]+)',
+    'root': '([a-zA-Z0-9\-_]+).root',
+    'hnName': '([a-zA-Z0-9\.]+)',
+    'subdir': '([a-zA-Z0-9\-_]+)',
+    'file': '([a-zA-Z0-9\-\._]+)',
+    'workflow': '([a-zA-Z0-9\-_]+)',
+    'physics_group': '([a-zA-Z\-_]+)'
+}
+
+userProcDSParts = {
+    'groupuser': '([a-zA-Z0-9\.\-_])+',
+    'publishdataname': '([a-zA-Z0-9\.\-_])+',
+    'psethash': '([a-f0-9]){32}'
 }
 
 def DBSUser(candidate):
@@ -142,6 +148,15 @@ def procdataset(candidate):
         return candidate
     return check(r'[a-zA-Z][a-zA-Z0-9_]*(\-[a-zA-Z0-9_]+){0,2}-v[0-9]*$', candidate)
 
+def userprocdataset(candidate):
+    """
+    Check for processed dataset name of users.
+    letters, numbers, dashes, underscores.
+    """
+    if candidate == '' or not candidate:
+        return candidate
+    return check(r'%(groupuser)s-%(publishdataname)s-%(psethash)s' % userProcDSParts, candidate)
+
 def procversion(candidate):
     """ Integers """
     return check(r'^[0-9]+$', candidate)
@@ -191,9 +206,10 @@ def lfn(candidate):
     regexp1 = '/([a-z]+)/([a-z0-9]+)/([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)/([A-Z\-_]+)/([a-zA-Z0-9\-_]+)((/[0-9]+){3}){0,1}/([0-9]+)/([a-zA-Z0-9\-_]+).root'
     regexp2 = '/([a-z]+)/([a-z0-9]+)/([a-z0-9]+)/([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)/([A-Z\-_]+)/([a-zA-Z0-9\-_]+)((/[0-9]+){3}){0,1}/([0-9]+)/([a-zA-Z0-9\-_]+).root'
     regexp3 = '/store/(temp/)*(user|group)/%(hnName)s/%(primDS)s/%(secondary)s/%(version)s/%(counter)s/%(root)s' % lfnParts
+    regexp4 = '/store/(temp/)*(user|group)/%(hnName)s/%(primDS)s/(%(subdir)s/)+%(root)s' % lfnParts
 
     oldStyleTier0LFN = '/store/data/%(era)s/%(primDS)s/%(tier)s/%(version)s/%(counter)s/%(counter)s/%(counter)s/%(root)s' % lfnParts
-    tier0LFN = '/store/(backfill/[0-9]/){0,1}(t0temp/){0,1}(data|express|hidata)/%(era)s/%(primDS)s/%(tier)s/%(version)s/%(counter)s/%(counter)s/%(counter)s/%(counter)s/%(root)s' % lfnParts
+    tier0LFN = '/store/(backfill/[0-9]/){0,1}(t0temp/){0,1}(data|express|hidata)/%(era)s/%(primDS)s/%(tier)s/%(version)s/%(counter)s/%(counter)s/%(counter)s(/%(counter)s)?/%(root)s' % lfnParts
 
     storeMcLFN = '/store/mc/([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(/([a-zA-Z0-9\-_]+))*/([a-zA-Z0-9\-_]+).root'
 
@@ -211,6 +227,11 @@ def lfn(candidate):
 
     try:
         return check(regexp3, candidate)
+    except AssertionError:
+        pass
+
+    try:
+        return check(regexp4, candidate)
     except AssertionError:
         pass
 
@@ -462,3 +483,10 @@ def splitCouchServiceURL(serviceURL):
 
     splitedURL = serviceURL.rstrip('/').rsplit('/', 1)
     return splitedURL[0], splitedURL[1]
+
+def primaryDatasetType(candidate):
+    pDatasetTypes = ["mc", "data", "cosmic", "test"]
+    if candidate in pDatasetTypes:
+        return True
+    # to sync with the check() exception when it doesn't match
+    raise AssertionError("Invalid primary dataset type : %s should be 'mc' or 'data' or 'test'" % candidate)

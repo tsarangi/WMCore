@@ -9,6 +9,7 @@ import contextlib
 import copy
 import os, subprocess
 import re
+from datetime import datetime
 from WMCore.Credential.Credential import Credential
 from WMCore.WMException import WMException
 import time
@@ -159,6 +160,23 @@ class Proxy(Credential):
 
         return ui
 
+    def getUserCertEnddate(self):
+        """
+        Return the number of days until the expiration of the user cern in .globus/usercert.pem
+        """
+        out, _, retcode = execute_command('grid-cert-info -enddate', self.logger, self.commandTimeout)
+        if retcode == 0:
+            try:
+                exptime = datetime.strptime(out[:-1], '%b  %d  %H:%M:%S %Y %Z')
+            except ValueError:
+                #This ValueError should not happen, but just in case I want a meaningful message
+                raise CredentialException('Cannot decode "grid-cert-info -enddate" date format. Please contact a developer')
+            daystoexp = (exptime - datetime.utcnow()).days
+        else:
+            raise CredentialException('Cannot get user certificate remaining time with "grid-cert-info -enddate"')
+
+        return daystoexp
+
     def getProxyDetails(self):
         """
         Return the vo details that should be in the user proxy.
@@ -296,7 +314,7 @@ class Proxy(Credential):
 
             if nokey is True:
                 credname = sha1(self.userDN).hexdigest()
-                myproxyDelegCmd = 'X509_USER_PROXY=%s ; myproxy-init -d -n -s %s -x -R \'%s\' -x -Z \'%s\' --voms cms -l \'%s\' -t 168:00 -c %s' \
+                myproxyDelegCmd = 'X509_USER_PROXY=%s ; myproxy-init -d -n -s %s -x -R \'%s\' -x -Z \'%s\' -l \'%s\' -t 168:00 -c %s' \
                                   % (credential, self.myproxyServer, self.serverDN, self.serverDN, credname, self.myproxyValidity)
             elif serverRenewer and len( self.serverDN.strip() ) > 0:
                 serverCredName = sha1(self.serverDN).hexdigest()

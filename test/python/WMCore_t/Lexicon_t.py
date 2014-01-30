@@ -102,11 +102,24 @@ class LexiconTest(unittest.TestCase):
         assert procdataset('CMSSW_3_0_0_pre3_IDEAL_30X-v1'), 'valid procdataset not validated'
         assert procdataset('CMSSW_3_0_0_pre3_IDEAL_30X-my_filter-my_string-v1'), 'valid procdataset not validated'
 
-    def testBadProcataset(self):
-        # Check that invalid Procataset raise an exception
+    def testBadProcdataset(self):
+        # Check that invalid Procdataset raise an exception
         self.assertRaises(AssertionError, procdataset, 'Drop Table')
         self.assertRaises(AssertionError, procdataset, 'Alter Table')
         self.assertRaises(AssertionError, procdataset, 'CMSSW_3_0_0_pre3_IDEAL_30X_v1')
+
+    def testGoodUserProcDataset(self):
+        dsList = ['weinberg-StealthSusy_mm16_RECO_AOD_Z2-689dc471cdaaa10be587d0cc7c95f00f',
+                  'tracker-pog-Summer09-MC_31X_V3_SD_ZeroBias-v1_Full_v0CandProducerPAT-6b5c47aa1f79fc09d5b81a20702e3621']
+        for ds in dsList:
+            self.assertTrue(userprocdataset(ds))
+
+    def testBadUserProcDataset(self):
+        dsList = ['weinberg-StealthSusy_mm16_RECO_AOD_Z2-689dc471cdaaa10be587d0cc7c95z00f',
+                  'weinberg-StealthSusy_mm16_RECO_AOD_Z2-689dc471cdaaa10be587d0cc7c95z00f1'
+                  'tracker-pog-Summer09-MC_31X_V3_SD_ZeroBias-v1_Full_v0#CandProducerPAT-6b5c47aa1f79fc09d5b81a20702e3621']
+        for ds in dsList:
+            self.assertRaises(AssertionError, userprocdataset, ds)
 
     def testGoodPrimdataset(self):
         # Check that valid Primdataset work
@@ -310,6 +323,8 @@ class LexiconTest(unittest.TestCase):
         lfn(lfnA)
         lfnA = '/store/hidata/Run2010A/Cosmics/RECO/v4/000/143/316/0000/F65F4AFE-14AC-DF11-B3BE-00215E21F32E.root'
         lfn(lfnA)
+        lfnA = '/store/hidata/HIRun2011/HIMinBiasUPC/RECO/PromptReco-v1/000/182/591/449805F5-7F1B-E111-AC84-E0CB4E55365D.root'
+        lfn(lfnA)
         lfnA = '/store/t0temp/data/Run2010A/Cosmics/RECO/v4/000/143/316/0000/F65F4AFE-14AC-DF11-B3BE-00215E21F32E.root'
         lfn(lfnA)
         lfnA = '/store/himc/Run2010A/Cosmics/RECO/v4/000/143/316/0000/F65F4AFE-14AC-DF11-B3BE-00215E21F32E.root'
@@ -321,6 +336,10 @@ class LexiconTest(unittest.TestCase):
         lfnA = '/store/backfill/1/Run2012B/Cosmics/RAW-RECO/PromptSkim-v1/000/194/912/00000/F65F4AFE-14AC-DF11-B3BE-00215E21F32E.root'
         lfn(lfnA)
         lfnA = '/store/results/qcd/QCD_Pt80/StoreResults-Summer09-MC_31X_V3_7TeV-Jet30U-JetAODSkim-0a98be42532eba1f0545cc9b086ec3c3/QCD_Pt80/USER/StoreResults-Summer09-MC_31X_V3_7TeV-Jet30U-JetAODSkim-0a98be42532eba1f0545cc9b086ec3c3/0000/C44630AC-C0C7-DE11-AD4E-0019B9CAC0F8.root'
+        lfn(lfnA)
+        lfnA = '/store/user/fanzago/RelValZMM/FanzagoTutGrid/f30a6bb13f516198b2814e83414acca1/outfile_10_2_tw4.root'
+        lfn(lfnA)
+        lfnA = '/store/group/higgs/SDMu9_Zmumu/Zmumu/OctX_HZZ3lepSkim_SDMu9/1eb161a436e69f7af28d18145e4ce909/3lepSkim_SDMu9_1.root'
         lfn(lfnA)
 
         # All these cases should fail
@@ -366,8 +385,6 @@ class LexiconTest(unittest.TestCase):
         lfnA = '/store/temp/acquisition_10-A/MuElectron-10_100/RAW-RECO/vX-1/1000/a_X;-2.root'
         self.assertRaises(AssertionError, lfn, lfnA)
 
-        lfnA = '/store/temp/user/ewv/Higgs-123/PrivateSample/USER/v1/a_X-2.root'
-        self.assertRaises(AssertionError, lfn, lfnA)
         lfnA = '/store/temp/user/ewv/Higgs;123/PrivateSample/v1/a_X-2.root'
         self.assertRaises(AssertionError, lfn, lfnA)
         lfnA = '/store/temp/user/ewv/Higgs-123/Private;Sample/v1/a_X-2.root'
@@ -692,6 +709,13 @@ class LexiconTest(unittest.TestCase):
                     'http://.www.google.com',
                     'http://[2001:0db8:85a3:08d3:1319:8a2z:0370:7344]/',]:
             self.assertRaises(AssertionError, validateUrl, url)
+            
+    def testPrimaryDatasetType(self):
+        self.assertRaises(AssertionError, primaryDatasetType, "MC")
+        self.assertTrue(primaryDatasetType("mc"), "mc should be allowed")
+        self.assertTrue(primaryDatasetType("data"), "data should be allowed")
+        self.assertTrue(primaryDatasetType("cosmic"), "data should be allowed")
+        self.assertTrue(primaryDatasetType("test"), "test should be allowed")
 
 if __name__ == "__main__":
     unittest.main()
