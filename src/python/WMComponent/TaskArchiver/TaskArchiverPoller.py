@@ -346,14 +346,22 @@ class TaskArchiverPoller(BaseWorkerThread):
 
         #Only delete those where the upload and notification succeeded
         logging.info("Found %d candidate workflows for deletion" % len(finishedwfs))
+        # update the completed flag in dbsbuffer_workflow table so blocks can be closed
+        # create updateDBSBufferWorkflowComplete DAO
+        if len(finishedwfs) ==0:
+            return
+        
+        completedWorkflowsDAO = self.dbsDaoFactory(classname = "UpdateWorkflowsToCompleted")
+        completedWorkflowsDAO.execute(finishedwfs.keys())
+        
         centralCouchAlive = True
         try:
             #TODO: need to enable when reqmgr2 -wmstats is ready
             #abortedWorkflows = self.reqmgrCouchDBWriter.workflowsByStatus(["aborted"], format = "dict");
             abortedWorkflows = self.centralCouchDBWriter.workflowsByStatus(["aborted"], format = "dict");
         except Exception, ex:
-           centralCouchAlive = False
-           logging.error("we will try again when remote couch server comes back\n%s" % str(ex))
+            centralCouchAlive = False
+            logging.error("we will try again when remote couch server comes back\n%s" % str(ex))
         
         if centralCouchAlive:
             wfsToDelete = {}

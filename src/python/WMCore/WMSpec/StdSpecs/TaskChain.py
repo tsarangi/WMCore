@@ -492,7 +492,8 @@ class TaskChainWorkloadFactory(StdBase):
                                     "attr" : "firstEvent", "null" : False},
                     "FirstLumi" : {"default" : 1, "type" : int,
                                     "optional" : True, "validate" : lambda x : x > 0,
-                                    "attr" : "firstLumi", "null" : False}}
+                                    "attr" : "firstLumi", "null" : False}
+                    }
         baseArgs.update(specArgs)
         return baseArgs
 
@@ -566,7 +567,13 @@ class TaskChainWorkloadFactory(StdBase):
                                      "null" : False},
                     "FilesPerJob" : {"default" : 1, "type" : int,
                                      "optional" : True, "validate" : lambda x : x > 0,
-                                     "null" : False}
+                                     "null" : False},
+                    "EventsPerLumi" : {"default" : None, "type" : int,
+                                       "optional" : True, "validate" : lambda x : x > 0,
+                                       "attr" : "eventsPerLumi", "null" : True},
+                    "LheInputFiles" : {"default" : False, "type" : strToBool,
+                                       "optional" : True, "validate" : None,
+                                       "attr" : "lheInputFiles", "null" : False}
                     }
         return specArgs
 
