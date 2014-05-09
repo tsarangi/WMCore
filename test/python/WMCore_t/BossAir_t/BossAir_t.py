@@ -131,7 +131,7 @@ class BossAirTest(unittest.TestCase):
         self.user = getpass.getuser()
 
         # Change this to the working dir to keep track of error and log files from condor
-        self.testInit.generateWorkDir()
+        self.testDir = self.testInit.generateWorkDir()
 
         # Set heartbeat
         componentName = 'test'
@@ -187,7 +187,7 @@ class BossAirTest(unittest.TestCase):
         config.JobSubmitter.pluginName    = 'AirPlugin'
         config.JobSubmitter.pluginDir     = 'JobSubmitter.Plugins'
         config.JobSubmitter.submitDir     = os.path.join(self.testDir, 'submit')
-        config.JobSubmitter.submitNode    = os.getenv("HOSTNAME", 'stevia.hep.wisc.edu')
+        config.JobSubmitter.submitNode    = os.getenv("HOSTNAME")
         config.JobSubmitter.submitScript  = os.path.join(WMCore.WMInit.getWMBASE(),
                                                          'test/python/WMComponent_t/JobSubmitter_t',
                                                          'submit.sh')

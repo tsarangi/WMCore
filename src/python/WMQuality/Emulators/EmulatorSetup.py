@@ -42,7 +42,7 @@ def _wmAgentConfig(configFile):
 
     # BossAir setup
     config.section_("BossAir")
-    config.BossAir.pluginNames = ['TestPlugin', 'CondorPlugin']
+    config.BossAir.pluginNames = ['TestPlugin', 'CondorPlugin','PyCondorPlugin']
     config.BossAir.pluginDir   = 'WMCore.BossAir.Plugins'
 
     saveConfigurationFile(config, configFile)

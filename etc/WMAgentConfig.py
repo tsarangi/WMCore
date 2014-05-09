@@ -49,6 +49,10 @@ agentNumber = 0
 # List of BossAir plugins that this agent will use.
 bossAirPlugins = ["CondorPlugin"]
 
+## New PythonCondor API for condor usage
+## This should eventually replace the existing condorplugin
+#bossAirPlugins = ["PyCondorPlugin"]
+
 # DBS Information.
 localDBSUrl = "https://cmst0dbs.cern.ch:8443/cms_dbs_prod_tier0_writer/servlet/DBSServlet"
 localDBSVersion = "DBS_2_0_8"
